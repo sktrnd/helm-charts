@@ -1,0 +1,218 @@
+{{- if .Values.lmaProvisioner.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-lma-provisioner
+data:
+  minio.vo.yaml: |
+    buckets:
+    - name: {{ .Values.selfServiceMinIo.bucket }}
+      objectlocking: false
+      policy: public
+      purge: false
+      versioning: true
+    customCommands:
+    - command: ilm rule add --expire-days 90 myminio/{{ .Values.selfServiceMinIo.bucket }}
+    - command: ilm ls myminio/{{ .Values.selfServiceMinIo.bucket }}
+    deploymentUpdate:
+      type: Recreate
+    mode: standalone
+    persistence:
+      accessMode: ReadWriteOnce
+      size: 1Gi
+    {{ if .Values.persistence.storageClassName }}
+      storageClass: {{ .Values.persistence.storageClassName }}
+    {{ end }}
+    users:
+    - accessKey: {{ .Values.auth.username }}
+      policy: consoleAdmin
+      secretKey: {{ .Values.auth.password }}
+    service:
+      nodePort: {{ .Values.selfServiceMinIo.port }}
+      type: NodePort
+
+  thanos.vo.yaml: |
+    clusterDomain: siim-dev # cluster.local, dns 식별자
+    compactor:    
+      enabled: true
+      consistencyDelay: 30m
+      extraFlags: null
+      logLevel: info
+      persistence:
+        accessModes:
+        - ReadWriteOnce
+        enabled: true
+        size: {{ .Values.persistence.capacity.compactor }}
+      retentionResolution1h: 10y
+      retentionResolution5m: 30d
+      retentionResolutionRaw: 30d
+    existingObjstoreSecret: truss-objstore-ep
+    {{ if .Values.persistence.storageClassName }}
+    global:
+      storageClass: {{ .Values.persistence.storageClassName }}
+    {{ end}}
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+    minio:
+      enabled: false 
+    query:
+      dnsDiscovery:
+        enabled: false
+        sidecarsNamespace: {{ .Release.Namespace }}
+        sidecarsService: null
+      stores:
+      - thanos-storegateway:10901
+      - prometheus-operated:10901
+    {{- range $worker := .Values.workerCluster }}
+      - {{ $worker.name }}:30901
+    {{- end }}
+    queryFrontend:
+      enabled: true
+      service:
+        nodePorts: 
+          http: 30002
+        type: NodePort
+      config: |-
+        type: IN-MEMORY
+        config:
+          max_size: 512MB
+          max_size_items: 100
+          validity: 100s
+    ruler:
+      enabled: false
+      alertmanagers:
+      - http://alertmanager-operated:9093
+      config:
+        groups:
+        - name: tks
+          rules:
+          - alert: PrometheusDown
+            expr: absent(up{prometheus="lma/lma-prometheus"})
+      evalInterval: 1m
+      logLevel: info
+      persistence:
+        accessModes:
+        - ReadWriteOnce
+        enabled: true
+        size: {{ .Values.persistence.capacity.ruler }}
+      podManagementPolicy: OrderedReady
+    storegateway:
+      enabled: true
+      config: |-
+        type: IN-MEMORY
+        config:
+          max_size: 0
+          max_item_size: 0
+      logLevel: info
+      persistence:
+        accessModes:
+        - ReadWriteOnce
+        enabled: true
+        size: {{ .Values.persistence.capacity.storegateway }}
+
+  grafana.vo.yaml: |
+    adminPassword: {{ .Values.auth.password }}
+    adminUser: {{ .Values.auth.username }}
+    grafana.ini:
+      plugins:
+        grafana-piechart-panel: true
+        vonage-status-panel: true
+    persistence:
+      enabled: true
+      size: 10G
+    {{ if .Values.persistence.storageClassName }}
+      storageClassName: {{ .Values.persistence.storageClassName }}
+    {{ end}}
+    service:
+      nodePort: 30001
+      type: NodePort
+    rbac:
+      create: true
+      extraClusterRoleRules:
+      - apiGroups: [""]
+        resources: ["configmaps", "secrets"]
+        verbs: ["get", "watch", "list"]
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        searchNamespace: ALL
+      datasources:
+        enabled: true
+        label: grafana_datasource
+
+  objstore.yml: |
+    {{- if $.Values.selfServiceMinIo.enabled }}
+    type: s3
+    config:
+      access_key:  {{ .Values.auth.username }}
+      bucket: {{ .Values.selfServiceMinIo.bucket }}
+      endpoint: truss-minio:9000
+      insecure: true
+      secret_key: {{ .Values.auth.password }}
+    {{- else if .Values.lmaProvisioner.objstore }}
+    type: {{ .Values.lmaProvisioner.objstore.type }}
+    config:
+      {{- range $key, $value := .Values.lmaProvisioner.objstore.config }}
+      {{ $key }}: {{ $value }}
+      {{- end }}
+    {{- end }}
+
+  {{ if .Values.persistence.storageClassName }}
+  local-taco-storage.yaml: |
+    apiVersion: storage.k8s.io/v1
+    kind: StorageClass
+    metadata:
+      name: {{ .Values.persistence.storageClassName }}
+    provisioner: rancher.io/local-path
+    reclaimPolicy: Delete
+    volumeBindingMode: WaitForFirstConsumer
+  {{ end }}
+
+  deploy.sh: |
+    #!/bin/sh
+    set -x
+
+    {{ if .Values.persistence.storageClassName }}
+    if [ $(kubectl get sc  --ignore-not-found=true | grep -v NAME | wc -l) -eq 0 ]; then
+      kubectl apply  -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
+      kubectl apply  -f /cm/local-taco-storage.yaml
+    fi
+    {{ end }}
+
+    {{- if $.Values.selfServiceMinIo.enabled }}
+    helm upgrade --install truss-minio --repo https://charts.min.io minio -f /cm/minio.vo.yaml --version 5.4.0
+    {{- end }}
+    kubectl create secret generic truss-objstore-ep  --from-file=/cm/objstore.yml
+
+    # thanos에 대한 EP를 준비해서 배포
+    thanosep=$(yq e -o json '.query.stores' /cm/thanos.vo.yaml)
+    {{- range $worker := .Values.workerProvisioner.clusters }}
+    {{- if $worker.monitoringAccessIp }}
+    ep={{ $worker.monitoringAccessIp }}
+    {{- else }}
+    ep=$(kubectl get secret -n {{ $.Release.Namespace }} {{ $worker.kubeconfig.secretName }}  -o jsonpath={'.data.config'} | base64 -d | yq  '.clusters[0].cluster.server'  | cut -d '/' -f 3 | cut -d ':' -f 1)
+    {{- end }}
+    thanosep=$(echo $thanosep | jq --arg ep "${ep}" '. += ["\($ep):30901"]')
+    {{- end }}
+
+    json_string="query.stores=${thanosep}"
+    helm upgrade --install truss-thanos --repo https://charts.bitnami.com/bitnami thanos -f /cm/thanos.vo.yaml --version 15.13.1 --set-json "$json_string"  --wait --timeout 600s
+
+    helm upgrade --install truss-grafana --repo https://harbor.taco-cat.xyz/chartrepo/truss grafana -f /cm/grafana.vo.yaml --version 8.10.1 --wait --timeout 600s
+
+  remove.sh: |
+    #!/bin/sh
+    set -x
+
+    helm uninstall --ignore-not-found truss-grafana
+    helm uninstall --ignore-not-found truss-thanos
+
+    {{- if not .Values.lmaProvisioner.objstore }}
+    helm uninstall --ignore-not-found truss-minio
+    {{- end }}
+
+{{- end}}
