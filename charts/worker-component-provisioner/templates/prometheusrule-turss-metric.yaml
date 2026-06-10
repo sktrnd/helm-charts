@@ -1,0 +1,247 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  annotations:
+    prometheus-operator-validated: "true"
+  name: {{ .Release.Name }}-truss-metric
+  labels:
+  {{- range $key, $value := .Values.labels }}
+    {{ $key  }}: {{ $value }}
+  {{- end}}
+spec:
+  groups:
+  - name: truss_metric_with_rbln_device_hostname_enrichment
+    interval: 15s 
+    rules:
+    - record: truss:device:xpu_power
+      expr: RBLN_DEVICE_STATUS:CARD_POWER
+      labels:
+        "exported_container": "TBD"
+        "exported_namespace": "TBD"
+        "exported_pod": "TBD"
+        "model": "TBD"
+        "pci_bus_id": "TBD"
+        "namespace": "TBD"
+        "device_type": "rbln"
+    - record: truss:device:xpu_mem_usage
+      expr: RBLN_DEVICE_STATUS:DRAM_USED / RBLN_DEVICE_STATUS:DRAM_TOTAL
+      labels:
+        "exported_container": "TBD"
+        "exported_namespace": "TBD"
+        "exported_pod": "TBD"
+        "model": "TBD"
+        "pci_bus_id": "TBD"
+        "namespace": "TBD"
+        "device_type": "rbln"
+    - record: truss:device:xpu_mem_total
+      expr: RBLN_DEVICE_STATUS:DRAM_TOTAL
+      labels:
+        "exported_container": "TBD"
+        "exported_namespace": "TBD"
+        "exported_pod": "TBD"
+        "model": "TBD"
+        "pci_bus_id": "TBD"
+        "namespace": "TBD"
+        "device_type": "rbln"
+    - record: truss:device:xpu_temp
+      expr: RBLN_DEVICE_STATUS:TEMPERATURE
+      labels:
+        "exported_container": "TBD"
+        "exported_namespace": "TBD"
+        "exported_pod": "TBD"
+        "model": "TBD"
+        "pci_bus_id": "TBD"
+        "namespace": "TBD"
+        "device_type": "rbln"
+    - record: truss:device:xpu_usage
+      expr: RBLN_DEVICE_STATUS:UTILIZATION
+      labels:
+        "exported_container": "TBD"
+        "exported_namespace": "TBD"
+        "exported_pod": "TBD"
+        "model": "TBD"
+        "pci_bus_id": "TBD"
+        "namespace": "TBD"
+        "device_type": "rbln"
+  - name: truss_metric_with_nvidia_device
+    interval: 15s 
+    rules:
+    - record: truss:device:xpu_power
+      expr: |
+        label_replace(
+          DCGM_FI_DEV_POWER_USAGE,
+          "card", "$1",
+          "model", "(.+)"
+        )
+      labels:
+        "device_type": "nvidia"
+    - record: truss:device:xpu_mem_usage
+      expr: |
+        label_replace(
+          DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED+DCGM_FI_DEV_FB_FREE),
+          "card", "$1",
+          "model", "(.+)"
+        )
+      labels:
+        "device_type": "nvidia"
+    - record: truss:device:xpu_mem_total
+      expr: |
+        label_replace(
+          DCGM_FI_DEV_FB_USED+DCGM_FI_DEV_FB_FREE,
+          "card", "$1",
+          "model", "(.+)"
+        )
+      labels:
+        "device_type": "nvidia"
+    - record: truss:device:xpu_temp
+      expr: |
+        label_replace(
+          DCGM_FI_DEV_GPU_TEMP,
+          "card", "$1",
+          "model", "(.+)"
+        )
+      labels:
+        "device_type": "nvidia"
+    - record: truss:device:xpu_mem_temp
+      expr: |
+        label_replace(
+          DCGM_FI_DEV_MEMORY_TEMP,
+          "card", "$1",
+          "model", "(.+)"
+        )
+      labels:
+        "device_type": "nvidia"
+    - record: truss:device:xpu_usage
+      expr: |
+        label_replace(
+          DCGM_FI_DEV_GPU_UTIL,
+          "card", "$1",
+          "model", "(.+)"
+        )
+      labels:
+        "device_type": "nvidia"
+  - name: truss_metric_from_vllm_server
+    interval: 15s 
+    rules:
+    # e2e latency
+    - record: truss:service:e2e_latency_seconds_sum
+      expr: |
+        sum(vllm:e2e_request_latency_seconds_sum) 
+        by (model_name)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:e2e_latency_seconds_count
+      expr: |
+        sum(vllm:e2e_request_latency_seconds_count) 
+        by (model_name)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:e2e_latency_seconds_bucket
+      expr: |
+        sum(vllm:e2e_request_latency_seconds_bucket) 
+        by (model_name, le)
+      labels:
+        "inference_engine_type": "vllm"
+
+    # TTFT (Time to first token)
+    - record: truss:service:ttft_seconds_sum
+      expr: |
+        sum(vllm:time_to_first_token_seconds_sum) 
+        by (model_name)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:ttft_seconds_count
+      expr: |
+        sum(vllm:time_to_first_token_seconds_count) 
+        by (model_name)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:ttft_seconds_bucket
+      expr: |
+        sum(vllm:time_to_first_token_seconds_bucket) 
+        by (model_name, le)
+      labels:
+        "inference_engine_type": "vllm"
+
+    # TPOT (Time per output token)
+    - record: truss:service:tpot_seconds_sum
+      expr: |
+        sum(vllm:time_per_output_token_seconds_sum) 
+        by (model_name)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:tpot_seconds_count
+      expr: |
+        sum(vllm:time_per_output_token_seconds_count) 
+        by (model_name)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:tpot_seconds_bucket
+      expr: |
+        sum(vllm:time_per_output_token_seconds_bucket) 
+        by (model_name, le)
+      labels:
+        "inference_engine_type": "vllm"
+
+    # 요청 / 응답 / 대기열 카운트
+    - record: truss:service:request_count
+      expr: |
+        sum(vllm:request_success_total) 
+        by (model_name)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:queued_count
+      expr: |
+        sum(vllm:num_requests_waiting) 
+        by (model_name)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:running_count
+      expr: |
+        sum(vllm:num_requests_running) 
+        by (model_name)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:response_count
+      expr: |
+        sum(vllm:request_success_total) 
+        by (model_name)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:generated_token_count
+      expr: |
+        sum(vllm:generation_tokens_total) 
+        by (model_name)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:prefilled_token_count
+      expr: |
+        sum(vllm:prompt_tokens_total) 
+        by (model_name)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:request_generated_tokens
+      expr: |
+        sum(vllm:request_generation_tokens_bucket) 
+        by (model_name, le)
+      labels:
+        "inference_engine_type": "vllm"
+
+    - record: truss:service:request_prefilled_tokens
+      expr: |
+        sum(vllm:request_prompt_tokens_bucket) 
+        by (model_name, le)
+      labels:
+        "inference_engine_type": "vllm"

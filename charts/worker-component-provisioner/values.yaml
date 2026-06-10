@@ -1,0 +1,38 @@
+targetClusterName: cluster6
+labels:
+  app.kubernetes.io/name: truss-worker-provisioner
+  app.kubernetes.io/version: 1.0.0
+  app.kubernetes.io/managed-by: truss
+
+lmaProvisioner:
+  enabled: true
+  image:
+    repository: harbor.taco-cat.xyz/tks/helm-kubectl
+    tag: 3.17.0
+    pullPolicy: IfNotPresent
+  backoffLimit: 3
+  objstore:
+    type: s3
+    config:
+      access_key: taco
+      bucket: truss-thanos
+      endpoint: 127.0.0.1:30003
+      insecure: true
+      secret_key: password
+  podMonitor:
+  - name: kubeai-models-pod-monitor
+    endpoint:
+    - port: http
+      path: /metrics
+      interval: 15s
+    selector:
+      matchLabels:
+        app.kubernetes.io/managed-by: truss
+        app.kubernetes.io/name: engine
+    targetNamespaces:
+      - kubeai
+  xpuSupport:
+    dcgm:
+      enabled: false
+    rbln:
+      enabled: false

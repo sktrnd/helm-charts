@@ -1,0 +1,33 @@
+{{- if .Values.lmaProvisioner.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-lma-provisioner-job
+  labels:
+  {{- range $key, $value := .Values.labels }}
+    {{ $key  }}: {{ $value }}
+  {{- end}}
+spec:
+  backoffLimit: {{ .Values.lmaProvisioner.backoffLimit }}
+  template:
+    metadata:
+      labels: 
+      {{- range $key, $value := .Values.labels }}
+        {{ $key  }}: {{ $value }}
+      {{- end}}
+    spec:
+      serviceAccountName: {{ .Release.Name }}-sa
+      restartPolicy: OnFailure
+      containers:
+      - name: lma-provisioner
+        image: {{ .Values.lmaProvisioner.image.repository }}:{{ .Values.lmaProvisioner.image.tag }}
+        command: ["/cm/deploy.sh"]
+        volumeMounts:
+        - name: cm-volume
+          mountPath: /cm
+      volumes:
+      - name: cm-volume
+        configMap:
+          name: {{ .Release.Name }}-lma-provisioner
+          defaultMode: 0755
+{{- end }}
