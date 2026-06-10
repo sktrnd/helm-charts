@@ -1,0 +1,35 @@
+{{- if and .Values.lmaProvisioner.grafanaDatasource.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "-5"
+  labels:
+    {{- if $.Values.lmaProvisioner.grafanaDatasource.sidecar.label }}
+    {{ $.Values.lmaProvisioner.grafanaDatasource.sidecar.label }}: "1"
+    {{- end }}
+    app: grafana
+data:
+  datasource.yaml: |-
+    apiVersion: 1
+    datasources:
+{{- if .Values.lmaProvisioner.grafanaDatasource.prometheus.enabled }}
+    - name: Prometheus
+      type: prometheus
+      url: http://{{ .Values.lmaProvisioner.grafanaDatasource.prometheus.url}}
+      access: proxy
+      isDefault: true
+{{- end }}
+{{- if .Values.lmaProvisioner.grafanaDatasource.loki.enabled }}
+    - name: Loki
+      type: loki
+      url: http://{{ .Values.lmaProvisioner.grafanaDatasource.loki.url}}
+      access: proxy
+{{- end }}
+{{- if .Values.lmaProvisioner.grafanaDatasource.additionalDataSources }}
+{{ toYaml .Values.lmaProvisioner.grafanaDatasource.additionalDataSources | indent 4}}
+{{- end }}
+{{- end }}

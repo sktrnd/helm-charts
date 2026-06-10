@@ -1,0 +1,25 @@
+{{- $files := .Files.Glob "artifacts/dashboard/*.json" }}
+{{- if $files }}
+{{- $envAll := . }}
+{{- $regex := cat  .Values.lmaProvisioner.grafanaDashboard.include | replace " " "|" | replace "[" "^(" | replace "]" ")+" }}
+
+{{- range $path, $fileContents := $files }}
+{{- $dashboardName := regexReplaceAll "(^.*/)(.*)\\.json$" $path "${2}" }}
+{{- if or ( not $regex ) ( regexMatch $regex $dashboardName ) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-%s" "grafana" $dashboardName | lower | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- if $.Values.lmaProvisioner.grafanaDashboard.sidecar.label }}
+    {{ $.Values.lmaProvisioner.grafanaDashboard.sidecar.label }}: "1"
+    {{- end }}
+    app: grafana
+data:
+{{ ($envAll.Files.Glob $path ).AsConfig | indent 2 }}
+
+{{- end }}
+{{- end }}
+
+{{- end }}
