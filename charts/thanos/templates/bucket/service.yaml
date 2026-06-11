@@ -1,0 +1,26 @@
+{{- if and .Values.bucket.enabled .Values.bucket.bucketweb.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "thanos.compName" (list . "bucketweb") }}
+  labels:
+    app.kubernetes.io/component: bucketweb
+    {{- include "thanos.labels" . | nindent 4 }}
+    {{- with .Values.bucket.bucketweb.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- include "thanos.annotations" (dict "Values" .Values "component" "bucketweb") | nindent 4 }}
+    {{- with .Values.bucket.bucketweb.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.bucket.bucketweb.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.bucket.bucketweb.service.port }}
+      targetPort: http
+  selector:
+    app.kubernetes.io/component: bucketweb
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

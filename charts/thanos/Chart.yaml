@@ -1,0 +1,55 @@
+apiVersion: v2
+name: thanos
+description: A helm chart to setup Thanos on Kubernetes, a highly available Prometheus setup with long term storage capabilities.
+type: application
+version: 0.18.0
+appVersion: "v0.41.0"
+keywords:
+  - thanos
+  - prometheus
+  - monitoring
+  - metrics
+  - alerting
+  - observability
+  - kube-prometheus-stack
+home: https://thanos.io/
+sources:
+  - https://github.com/thanos-io/thanos
+  - https://github.com/thanos-community/helm-charts
+icon: https://raw.githubusercontent.com/thanos-io/thanos/master/docs/img/Thanos-logo_fullmedium.png
+deprecated: false
+kubeVersion: ">= 1.30.0-0"
+maintainers:
+  - name: hamdikh
+    email: hamdi.khelil@kapheira.cloud
+dependencies:
+  - name: kube-prometheus-stack
+    alias: kube-prometheus-stack
+    version: 85.2.0
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: kube-prometheus-stack.enabled
+  - name: rustfs
+    version: "0.3.0"
+    repository: https://charts.rustfs.com/
+    condition: rustfs.enabled
+annotations:
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/operator: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/signKey: |
+    fingerprint: BEAD950E9E7EBFE8CEC7E3F29D8EA313A3D349D8
+    url: https://keys.openpgp.org/vks/v1/by-fingerprint/BEAD950E9E7EBFE8CEC7E3F29D8EA313A3D349D8
+  artifacthub.io/images: |
+    - name: thanos
+      image: quay.io/thanos/thanos:v0.41.0
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://thanos.io/tip/thanos/getting-started.md/
+    - name: GitHub
+      url: https://github.com/thanos-io/thanos
+    - name: Slack
+      url: https://cloud-native.slack.com/archives/CL25937SP
+  artifacthub.io/changes: |
+    - kind: added
+      description: Per-component podLabels to set extra labels on pods (e.g. for workload identity), rendered via a shared thanos.podLabels helper for all workloads (bucketweb, compactor, query, query-frontend, store gateway, receive, receive ingester/router, ruler)

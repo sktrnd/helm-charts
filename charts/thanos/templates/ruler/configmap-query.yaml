@@ -1,0 +1,13 @@
+{{- if .Values.ruler.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "thanos.compName" (list . "ruler") }}-query
+  labels:
+    {{- include "thanos.labels" . | nindent 4 }}
+  annotations:
+    {{- include "thanos.annotations" (dict "Values" .Values "component" "ruler-query") | nindent 4 }}
+data:
+  query-urls.yaml: |
+    {{- include "thanos.ruler.queryUrls" . | nindent 4 }}
+{{- end }}
