@@ -1,0 +1,330 @@
+{{- if .Values.lmaProvisioner.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-lma-provisioner
+data:
+  prometheus.vo.yaml: |
+    alertmanager:
+      enabled: false
+    coreDns:
+      enabled: false
+    defaultRules:
+      create: false
+    fullnameOverride: truss-mon
+    global:
+      rbac:
+        create: true
+    grafana:
+      enabled: false
+    kubeApiServer:
+      enabled: false
+    kubeControllerManager:
+      enabled: false
+    kubeDns:
+      enabled: false
+    kubeEtcd:
+      enabled: false
+    kubeProxy:
+      enabled: false
+    kubeScheduler:
+      enabled: false
+    kubeStateMetrics:
+      enabled: false
+    kubelet:
+      enabled: false
+    nodeExporter:
+      enabled: true
+    prometheus-node-exporter:
+      extraArgs:
+      - --no-collector.hwmon
+      hostNetwork: false
+      prometheus:
+        monitor:
+          enabled: true
+          relabelings:
+          - action: replace
+            sourceLabels:
+            - __meta_kubernetes_endpoint_node_name
+            targetLabel: hostname
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+    prometheus:
+      enabled: true
+      prometheusSpec:
+        evaluationInterval: 60s
+        externalLabels:
+          taco_cluster: {{ .Values.targetClusterName }} # FIXME: cluster name
+        podMonitorNamespaceSelector: {} # FIXME: truss namespaces
+        podMonitorSelector:
+          matchLabels:
+            app.kubernetes.io/instance: truss  # FIXME: add key    
+        podMonitorSelectorNilUsesHelmValues: false
+        replicas: 1
+        retention: 2d
+        ruleNamespaceSelector:
+          matchLabels:
+            name: {{ .Release.Namespace }}
+        ruleSelectorNilUsesHelmValues: false
+        scrapeInterval: 30s
+        scrapeTimeout: 10s
+        serviceMonitorNamespaceSelector: {}
+        serviceMonitorSelectorNilUsesHelmValues: false
+        thanos:
+          minTime: -3h
+          objectStorageConfig:
+            existingSecret:
+              key: objstore.yml
+              name: truss-objstore-ep
+          version: v0.18.0
+      thanosServiceExternal:
+        annotations:
+          service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: '*'
+          service.beta.kubernetes.io/aws-load-balancer-type: nlb
+        enabled: true
+        labels: {}
+        nodePort: 30901
+        port: 10901
+        portName: grpc
+        targetPort: grpc
+        type: NodePort
+    prometheusOperator:
+      cleanupCustomResource: true
+      cleanupCustomResourceBeforeInstall: true
+      createCustomResource: true
+      enabled: true
+
+  dcgm-exporter.vo.yaml: |
+    serviceMonitor:
+      metricRelabelings:
+      # Hostname → hostname
+      - sourceLabels: [Hostname]
+        targetLabel: hostname
+        replacement: $1
+        action: replace
+      # UUID → uuid
+      - sourceLabels: [UUID]
+        targetLabel: uuid
+        replacement: $1
+        action: replace
+      # modelName → model
+      - sourceLabels: [modelName]
+        targetLabel: model
+        replacement: $1
+        action: replace
+      # 원본 라벨 삭제
+      - action: labeldrop
+        regex: Hostname|UUID|modelName
+
+  podmonitor_truss.yaml: |
+{{- range $podmon := .Values.lmaProvisioner.podMonitor }}
+    ---
+    apiVersion: monitoring.coreos.com/v1
+    kind: PodMonitor
+    metadata:
+      name: {{ $podmon.name }}
+      labels:
+        app.kubernetes.io/component: metrics
+        app.kubernetes.io/instance: truss
+    spec:
+      podTargetLabels:
+        - camel.apache.org/integration
+      podMetricsEndpoints:
+      {{- range $value := $podmon.endpoint }}
+      - port: {{ $value.port }}
+        path:  {{ $value.path }}
+        interval:  {{ $value.interval }}
+      {{- end }}
+
+      selector:
+        matchLabels:
+          {{- range $key, $value := $podmon.selector.matchLabels }}
+          {{ $key  }}: {{ $value }}
+          {{- end }}
+      namespaceSelector:
+        matchNames:
+        - {{ $.Release.Namespace }}
+      {{- range $value := $podmon.targetNamespaces }}
+        - {{ $value }}
+      {{- end }}
+{{- end }}
+
+  servicemonitor_kubelet.yaml: |
+    apiVersion: monitoring.coreos.com/v1
+    kind: ServiceMonitor
+    metadata:
+      name: kubelet
+    spec:
+      endpoints:
+      - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+        honorLabels: true
+        interval: 30s
+        port: https-metrics
+        scheme: https
+        tlsConfig:
+          caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecureSkipVerify: true
+      - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+        honorLabels: true
+        interval: 30s
+        path: /metrics/cadvisor
+        port: https-metrics
+        scheme: https
+        tlsConfig:
+          caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecureSkipVerify: true
+      - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+        honorLabels: true
+        interval: 30s
+        path: /metrics/probes
+        port: https-metrics
+        scheme: https
+        tlsConfig:
+          caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecureSkipVerify: true
+      jobLabel: k8s-app
+      namespaceSelector:
+        matchNames:
+        - kube-system
+      selector:
+        matchLabels:
+          k8s-app: kubelet
+
+{{- if .Values.lmaProvisioner.objstore }}
+  objstore.yml: |
+    type: {{ .Values.lmaProvisioner.objstore.type }}
+    config:
+  {{- range $key, $value := .Values.lmaProvisioner.objstore.config }}
+      {{ $key }}: {{ $value }}
+  {{- end }}
+{{- end }}
+
+  deploy.sh: |
+    #!/bin/sh
+    set -x
+
+    kubectl get secret truss-objstore-ep &> /dev/null || kubectl create secret generic truss-objstore-ep --from-file=/cm/objstore.yml
+    helm upgrade --install truss-prometheus --repo https://prometheus-community.github.io/helm-charts kube-prometheus-stack -f /cm/prometheus.vo.yaml --wait --timeout 600s
+    kubectl apply -f /cm/servicemonitor_kubelet.yaml
+    kubectl apply -f /cm/podmonitor_truss.yaml
+{{- if .Values.lmaProvisioner.xpuSupport.dcgm.enabled }}
+    if [ $(kubectl get po -A -l app.kubernetes.io/name=dcgm-exporter --ignore-not-found=true | grep -v NAME | wc -l) -eq 0 ]; then
+      helm upgrade --install truss-dcgm-exporter --repo https://nvidia.github.io/dcgm-exporter/helm-charts dcgm-exporter -f /cm/dcgm-exporter.vo.yaml --wait --timeout 600s
+    else
+      DCGM_NS=$(kubectl get po -A -l app.kubernetes.io/name=dcgm-exporter | grep -v NAME | awk '{print $1}')
+      kubectl apply -f - <<EOF
+    apiVersion: monitoring.coreos.com/v1
+    kind: ServiceMonitor
+    metadata:
+      labels:
+        app.kubernetes.io/component: dcgm-exporter
+        app.kubernetes.io/instance: truss-dcgm-exporter
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: dcgm-exporter
+        app.kubernetes.io/version: 4.2.0
+        helm.sh/chart: dcgm-exporter-4.2.0
+      name: truss-dcgm-exporter
+    spec:
+      endpoints:
+      - honorLabels: false
+        interval: 15s
+        path: /metrics
+        port: metrics
+        relabelings: []
+        metricRelabelings:
+        - sourceLabels: [Hostname]
+          targetLabel: hostname
+          replacement: $1
+          action: replace
+        - sourceLabels: [UUID]
+          targetLabel: uuid
+          replacement: $1
+          action: replace
+        - sourceLabels: [modelName]
+          targetLabel: model
+          replacement: $1
+          action: replace
+        - action: labeldrop
+          regex: Hostname|UUID|modelName
+      namespaceSelector:
+        matchNames:
+        - ${DCGM_NS}
+      selector:
+        matchLabels:
+          app.kubernetes.io/component: dcgm-exporter
+          app.kubernetes.io/instance: truss-dcgm-exporter
+          app.kubernetes.io/name: dcgm-exporter
+    EOF
+    fi
+{{- end }}
+{{- if .Values.lmaProvisioner.xpuSupport.rbln.enabled }}
+    RBLN_NS=$(kubectl get po -A -l app=rbln-metrics-exporter | grep -v NAME | awk '{print $1}')
+
+    if [ -z "$RBLN_NS" ]; then
+      echo "Rebellion Metrics Exporter not found. Please deploy it first."
+      exit 1
+    fi
+
+    kubectl apply -f - <<EOF
+    apiVersion: v1
+    kind: Service
+    metadata:
+      labels:
+        app.kubernetes.io/component: rebellion-exporter
+        app.kubernetes.io/instance: truss-rebellion-exporter
+        app.kubernetes.io/name: rebellion-exporter
+      name: truss-rebellions-metricsexporter
+      namespace: ${RBLN_NS}
+    spec:
+      internalTrafficPolicy: Cluster
+      ports:
+      - name: metrics
+        port: 9090
+        protocol: TCP
+        targetPort: 9090
+      selector:
+        app: rbln-metrics-exporter
+      sessionAffinity: None
+      type: ClusterIP
+    ---
+    apiVersion: monitoring.coreos.com/v1
+    kind: ServiceMonitor
+    metadata:
+      labels:
+        app.kubernetes.io/component: rebellion-exporter
+        app.kubernetes.io/instance: truss-rebellion-exporter
+      name: truss-rebellion-exporter
+    spec:
+      endpoints:
+      - honorLabels: false
+        interval: 15s
+        path: /metrics
+        port: metrics
+        relabelings:
+        - sourceLabels: [__meta_kubernetes_endpoint_node_name]
+          targetLabel: hostname
+      namespaceSelector:
+        matchNames:
+        - ${RBLN_NS}
+      selector:
+        matchLabels:
+          app.kubernetes.io/component: rebellion-exporter
+          app.kubernetes.io/instance: truss-rebellion-exporter
+          app.kubernetes.io/name: rebellion-exporter
+    EOF
+{{- end }}
+
+  remove.sh: |
+    #!/bin/sh
+    set -x
+
+    # if helm status truss-prometheus &> /dev/null; then
+    #   helm delete truss-prometheus
+    # else
+    #   echo "Release truss-prometheus does not exist."
+    # fi
+    helm uninstall  --ignore-not-found truss-prometheus
+{{- end }}

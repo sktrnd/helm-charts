@@ -1,0 +1,91 @@
+labels: 
+  app.kubernetes.io/name: truss-worker-provisioner
+  app.kubernetes.io/version: 1.0.0
+  app.kubernetes.io/managed-by: truss
+
+auth:
+  username: taco
+  password: password
+
+persistence:
+  # storageClassName: taco-storage
+  capacity:
+    compactor: 1Gi
+    ruler: 1Gi
+    storegateway: 1Gi
+
+lmaProvisioner:
+  enabled: true
+  image:
+    repository: siim/kubectl-helm-git-yq
+    tag: kv1.30.1-hv3.18.2-yv4.45.1
+    pullPolicy: IfNotPresent
+  backoffLimit: 3
+
+  # To use existing minio using below with modifcation for your env.
+  # ---
+  # objstore:
+  #   type: s3
+  #   config:
+  #     access_key: taco
+  #     bucket: tks-thanos
+  #     endpoint: 192.168.5.101:30003
+  #     insecure: true
+  #     secret_key: password
+
+  podMonitor:
+  - name: kubeai-models-pod-monitor
+    endpoint:
+    - port: http
+      path: /metrics
+      interval: 15s
+    selector:
+      matchLabels:
+        app.kubernetes.io/managed-by: truss
+        app.kubernetes.io/name: engine
+    targetNamespaces:
+      - kubeai
+
+  grafanaDashboard:
+    include:
+    - truss
+    namespace: truss-admin
+    sidecar:
+      label: grafana_dashboard
+
+  grafanaDatasource:
+    enabled: true
+    sidecar:
+      label: grafana_datasource
+    prometheus:
+      enabled: true
+      url: "truss-thanos-query:9090"
+    loki:
+      enabled: true
+      url: "loki-loki-distributed-gateway:80"
+
+pvcProvisioner:
+  enabled: fallse
+
+selfServiceMinIo:
+  enabled: false
+  host: 127.0.0.1 # accessable from every worker clusters
+  port: 30003 # accessable from every worker clusters, this chart install minio with node port as defined here. 
+  bucket: truss-thanos
+
+workerProvisioner: 
+  enabled: false
+  image:
+    repository: siim/kubectl-helm-git-yq
+    tag: kv1.30.1-hv3.18.2-yv4.45.1
+    pullPolicy: IfNotPresent
+  backoffLimit: 3
+  targetNamespaces: truss-system
+  clusters: []
+  # - name: local-cluster
+  #   kubeconfig:
+  #     secretName: local-cluster-kubeconfig
+  #   monitoringAccessIp: 10.0.0.1
+  #   xpuSupport:
+  #   - dcgm
+  #   - rbln

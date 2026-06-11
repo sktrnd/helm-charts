@@ -1,0 +1,83 @@
+{{- range $worker := .Values.workerProvisioner.clusters }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $.Release.Name }}-{{ $worker.name }}-provisioner
+data:
+  worker.vo.yaml: |
+    targetClusterName: {{ $worker.name }}
+    
+    lmaProvisioner:
+      image:
+        repository: {{ $.Values.lmaProvisioner.image.repository }}
+        tag: {{ $.Values.lmaProvisioner.image.tag }}
+        pullPolicy: {{ $.Values.lmaProvisioner.image.pullPolicy }}
+      objstore:
+    {{- if $.Values.selfServiceMinIo.enabled }}
+        type: s3
+        config:
+          access_key: {{ $.Values.auth.username }}
+          bucket: {{ $.Values.selfServiceMinIo.bucket }}
+          endpoint: "{{ $.Values.selfServiceMinIo.host }}:{{ $.Values.selfServiceMinIo.port }}"
+          insecure: true
+          secret_key: {{ $.Values.auth.password }}
+    {{- else if $.Values.lmaProvisioner.objstore }}
+        type: {{ $.Values.lmaProvisioner.objstore.type }}
+        config:
+          access_key: {{ $.Values.lmaProvisioner.objstore.config.access_key }}
+          bucket: {{ $.Values.lmaProvisioner.objstore.config.bucket }}
+          endpoint: {{ $.Values.lmaProvisioner.objstore.config.endpoint }}
+          insecure: {{ $.Values.lmaProvisioner.objstore.config.insecure }}
+          secret_key: {{ $.Values.lmaProvisioner.objstore.config.secret_key }}
+    {{- end }}
+
+    {{- if $.Values.lmaProvisioner.podMonitor }}
+      podMonitor:
+      {{- range $value := $.Values.lmaProvisioner.podMonitor }}
+      - dummy: for_seperation_of_podmon
+{{ $value | toYaml | indent 8 }}
+      {{- end }}
+    {{- end}}
+
+    {{- if $worker.xpuSupport }}
+      xpuSupport:
+      {{- range $value := $worker.xpuSupport  }}
+        {{ $value }}:
+          enabled: true
+      {{- end}}
+    {{- end}}
+
+    pvcProvisioner:
+      enabled: true
+      image:
+        repository: {{ $.Values.lmaProvisioner.image.repository }}
+        tag: {{ $.Values.lmaProvisioner.image.tag }}
+        pullPolicy: {{ $.Values.lmaProvisioner.image.pullPolicy }}
+      nfs: 
+        server: 192.168.5.50
+        path: /{{ $worker.tenant }}
+        capacity: 500Gi
+
+  deploy.sh: |
+    #!/bin/sh
+    set -x
+
+    if [ $(kubectl get sc  --ignore-not-found=true | grep -v NAME | wc -l) -eq 0 ]; then
+      kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
+      kubectl apply -f /cm/local-taco-storage.yaml
+    fi
+
+    # 여기에 PV를 위한 NFS 구성이 필요하다면 넣자.
+
+    if [ $(helm list -n  {{ $.Values.workerProvisioner.targetNamespaces }} | grep truss-worker | wc -l) -ne 1 ]; then
+      helm install -n  {{ $.Values.workerProvisioner.targetNamespaces }} truss-worker --repo https://harbor.taco-cat.xyz/chartrepo/tks worker-component-provisioner -f /cm/worker.vo.yaml --create-namespace
+    fi
+
+  remove.sh: |
+    #!/bin/sh
+    set -x
+
+    helm uninstall --ignore-not-found -n  {{ $.Values.workerProvisioner.targetNamespaces }} truss-worker
+
+{{- end}}

@@ -1,0 +1,35 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-clusterrole
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+# - apiGroups: 
+#   - rbac.authorization.k8s.io
+#   - storage.k8s.io
+#   resources:
+#   - clusterroles
+#   - clusterrolebindings
+#   - storageclasses
+#   verbs: 
+#   - get
+#   - list
+#   - watch
+#   - create
+#   - updat
+#   - delete
+# - apiGroups: 
+#   - ''
+#   resources:
+#   - configmaps
+#   - secrets
+#   verbs: 
+#   - get
+#   - watch
+#   - list
+#   - get
+#   - watch
+#   - list

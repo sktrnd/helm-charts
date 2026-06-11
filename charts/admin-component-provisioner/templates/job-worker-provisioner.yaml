@@ -1,0 +1,43 @@
+{{- range $worker := .Values.workerProvisioner.clusters }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $.Release.Name }}-{{ $worker.name }}-provisioner-job
+  annotations:
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels:
+  {{- range $key, $value := $.Values.labels }}
+    {{ $key  }}: {{ $value }}
+  {{- end}}
+spec:
+  backoffLimit: {{ $.Values.workerProvisioner.backoffLimit }}
+  template:
+    metadata:
+      labels: 
+      {{- range $key, $value := $.Values.labels }}
+        {{ $key  }}: {{ $value }}
+      {{- end}}
+    spec:
+      serviceAccountName: {{ $.Release.Name }}-sa
+      restartPolicy: OnFailure
+      containers:
+      - name: lma-provisioner
+        image: {{ $.Values.workerProvisioner.image.repository }}:{{ $.Values.workerProvisioner.image.tag }}
+        command: ["/cm/deploy.sh"]
+        volumeMounts:
+        - name: cm-volume
+          mountPath: /cm
+        - name: kubeconfig
+          mountPath: /root/.kube/config
+          subPath: config
+          readOnly: true
+      volumes:
+      - name: cm-volume
+        configMap:
+          name: {{ $.Release.Name }}-{{ $worker.name }}-provisioner
+          defaultMode: 0755
+      - name: kubeconfig
+        secret:
+          secretName: {{ $worker.kubeconfig.secretName }}
+{{- end }}
