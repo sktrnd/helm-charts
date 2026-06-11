@@ -3,6 +3,16 @@ entries:
   admin-component-provisioner:
   - apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-06-11T16:11:25.122355099Z"
+    description: A Helm chart for managing configuration files and shell scripts
+    digest: 86bfe159a79cdd27310b6d41999d3b6fbba678913eae2c164c950dd625e2f8c9
+    name: admin-component-provisioner
+    type: application
+    urls:
+    - https://github.com/sktrnd/helm-charts/releases/download/admin-component-provisioner-1.2.9/admin-component-provisioner-1.2.9.tgz
+    version: 1.2.9
+  - apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-06-11T16:06:01.020776183Z"
     description: A Helm chart for managing configuration files and shell scripts
     digest: 6b009ba09eb8f0db8af9f41bc2132dd66dcbd40d56bbe1c095672b8771d8a97c
@@ -64,6 +74,16 @@ entries:
   worker-component-provisioner:
   - apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-06-11T16:11:25.353414496Z"
+    description: A Helm chart for managing configuration files and shell scripts
+    digest: e0db8f21bf1f805034a3680c88ea74099182777622b1cb587682c2e164e20503
+    name: worker-component-provisioner
+    type: application
+    urls:
+    - https://github.com/sktrnd/helm-charts/releases/download/worker-component-provisioner-1.3.9/worker-component-provisioner-1.3.9.tgz
+    version: 1.3.9
+  - apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-06-11T16:06:01.187479756Z"
     description: A Helm chart for managing configuration files and shell scripts
     digest: e64a6ee0c1fa434d2f60127e3d2df3876964a3f00fa3ca1258b972b95f904727
@@ -112,4 +132,4 @@ entries:
     urls:
     - https://github.com/sktrnd/helm-charts/releases/download/worker-component-provisioner-1.3.0/worker-component-provisioner-1.3.0.tgz
     version: 1.3.0
-generated: "2026-06-11T16:06:01.187540239Z"
+generated: "2026-06-11T16:11:25.35346597Z"
