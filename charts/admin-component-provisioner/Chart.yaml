@@ -2,5 +2,5 @@ apiVersion: v2
 name: admin-component-provisioner
 description: A Helm chart for managing configuration files and shell scripts
 type: application
-version: 1.2.10
+version: 1.2.11
 appVersion: "1.0.0"

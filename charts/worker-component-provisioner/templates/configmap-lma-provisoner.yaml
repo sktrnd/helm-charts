@@ -212,7 +212,7 @@ data:
     kubectl apply -f /cm/podmonitor_truss.yaml
 {{- if .Values.lmaProvisioner.xpuSupport.dcgm.enabled }}
     if [ $(kubectl get po -A -l app.kubernetes.io/name=dcgm-exporter --ignore-not-found=true | grep -v NAME | wc -l) -eq 0 ]; then
-      helm upgrade --install truss-dcgm-exporter --repo {{ .Values.lmaProvisioner.component.dcgm-exporter.repository }} {{ .Values.lmaProvisioner.component.dcgm-exporter.chart }} -f /cm/dcgm-exporter.vo.yaml --version {{ .Values.lmaProvisioner.component.dcgm-exporter.version }} --wait --timeout 600s
+      helm upgrade --install truss-dcgm-exporter --repo {{ (index .Values.lmaProvisioner.component "dcgm-exporter").repository }} {{ (index .Values.lmaProvisioner.component "dcgm-exporter").chart }} -f /cm/dcgm-exporter.vo.yaml --version {{ (index .Values.lmaProvisioner.component "dcgm-exporter").version }} --wait --timeout 600s
     else
       DCGM_NS=$(kubectl get po -A -l app.kubernetes.io/name=dcgm-exporter | grep -v NAME | awk '{print $1}')
       kubectl apply -f - <<EOF

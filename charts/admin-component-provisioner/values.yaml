@@ -108,4 +108,4 @@ workerProvisioner:
     worker:
       repository: https://sktrnd.github.io/helm-charts
       chart: worker-component-provisioner
-      version: 1.3.10
+      version: 1.3.11
