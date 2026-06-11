@@ -36,3 +36,12 @@ lmaProvisioner:
       enabled: false
     rbln:
       enabled: false
+  component:
+    prometheus:
+      repository: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      version: 46.11.0
+    dcgm-exporter:
+      repository: https://nvidia.github.io/dcgm-exporter/helm-charts
+      chart: dcgm-exporter
+      version: 4.2.0
