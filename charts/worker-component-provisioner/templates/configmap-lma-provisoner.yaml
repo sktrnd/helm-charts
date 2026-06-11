@@ -207,12 +207,12 @@ data:
     set -x
 
     kubectl get secret truss-objstore-ep &> /dev/null || kubectl create secret generic truss-objstore-ep --from-file=/cm/objstore.yml
-    helm upgrade --install truss-prometheus --repo https://prometheus-community.github.io/helm-charts kube-prometheus-stack -f /cm/prometheus.vo.yaml --wait --timeout 600s
+    helm upgrade --install truss-prometheus --repo {{ .Values.lmaProvisioner.component.prometheus.repository }} {{ .Values.lmaProvisioner.component.prometheus.chart }} -f /cm/prometheus.vo.yaml --version {{ .Values.lmaProvisioner.component.prometheus.version }} --wait --timeout 600s
     kubectl apply -f /cm/servicemonitor_kubelet.yaml
     kubectl apply -f /cm/podmonitor_truss.yaml
 {{- if .Values.lmaProvisioner.xpuSupport.dcgm.enabled }}
     if [ $(kubectl get po -A -l app.kubernetes.io/name=dcgm-exporter --ignore-not-found=true | grep -v NAME | wc -l) -eq 0 ]; then
-      helm upgrade --install truss-dcgm-exporter --repo https://nvidia.github.io/dcgm-exporter/helm-charts dcgm-exporter -f /cm/dcgm-exporter.vo.yaml --wait --timeout 600s
+      helm upgrade --install truss-dcgm-exporter --repo {{ .Values.lmaProvisioner.component.dcgm-exporter.repository }} {{ .Values.lmaProvisioner.component.dcgm-exporter.chart }} -f /cm/dcgm-exporter.vo.yaml --version {{ .Values.lmaProvisioner.component.dcgm-exporter.version }} --wait --timeout 600s
     else
       DCGM_NS=$(kubectl get po -A -l app.kubernetes.io/name=dcgm-exporter | grep -v NAME | awk '{print $1}')
       kubectl apply -f - <<EOF

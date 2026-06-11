@@ -71,7 +71,7 @@ data:
     # 여기에 PV를 위한 NFS 구성이 필요하다면 넣자.
 
     if [ $(helm list -n  {{ $.Values.workerProvisioner.targetNamespaces }} | grep truss-worker | wc -l) -ne 1 ]; then
-      helm install -n  {{ $.Values.workerProvisioner.targetNamespaces }} truss-worker --repo https://sktrnd.github.io/helm-charts worker-component-provisioner -f /cm/worker.vo.yaml --create-namespace
+      helm install -n  {{ $.Values.workerProvisioner.targetNamespaces }} truss-worker --repo {{ $.Values.workerProvisioner.component.worker.repository }} {{ $.Values.workerProvisioner.component.worker.chart }} -f /cm/worker.vo.yaml --version {{ $.Values.workerProvisioner.component.worker.version }} --create-namespace
     fi
 
   remove.sh: |
