@@ -3,11 +3,10 @@ name: Release Charts
 on:
   push:
     branches:
-      - main  # main 브랜치에 푸시되거나 PR이 머지될 때 실행
+      - main
 
 jobs:
   release:
-    # GitHub Pages 배포를 위한 권한 설정
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -25,7 +24,13 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
-          version: v3.14.0 # 필요에 따라 최신 버전으로 변경 가능
+          version: v3.14.0
+
+      - name: Add Helm repositories
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add rustfs https://charts.rustfs.com/
+          helm repo update
 
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.6.0
