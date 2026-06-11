@@ -184,7 +184,7 @@ data:
     {{ end }}
 
     {{- if $.Values.selfServiceMinIo.enabled }}
-    helm upgrade --install truss-minio --repo https://charts.min.io minio -f /cm/minio.vo.yaml --version 5.4.0
+    helm upgrade --install truss-minio --repo {{ .Values.lmaProvisioner.component.minio.repository }} --chart {{ .Values.lmaProvisioner.component.minio.chart }} -f /cm/minio.vo.yaml --version {{ .Values.lmaProvisioner.component.minio.version }} --wait --timeout 600s
     {{- end }}
     kubectl create secret generic truss-objstore-ep  --from-file=/cm/objstore.yml
 
@@ -200,9 +200,9 @@ data:
     {{- end }}
 
     json_string="query.stores=${thanosep}"
-    helm upgrade --install truss-thanos --repo https://charts.bitnami.com/bitnami thanos -f /cm/thanos.vo.yaml --version 15.13.1 --set-json "$json_string"  --wait --timeout 600s
+    helm upgrade --install truss-thanos --repo {{ .Values.lmaProvisioner.component.thanos.repository }} --chart {{ .Values.lmaProvisioner.component.thanos.chart }} -f /cm/thanos.vo.yaml --version {{ .Values.lmaProvisioner.component.thanos.version }} --set-json "$json_string"  --wait --timeout 600s
 
-    helm upgrade --install truss-grafana --repo https://grafana.github.io/helm-charts grafana -f /cm/grafana.vo.yaml --version 8.10.1 --wait --timeout 600s
+    helm upgrade --install truss-grafana --repo {{ .Values.lmaProvisioner.component.grafana.repository }} --chart {{ .Values.lmaProvisioner.component.grafana.chart }} -f /cm/grafana.vo.yaml --version {{ .Values.lmaProvisioner.component.grafana.version }} --wait --timeout 600s
 
   remove.sh: |
     #!/bin/sh
