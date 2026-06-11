@@ -2,5 +2,5 @@ apiVersion: v2
 name: worker-component-provisioner
 description: A Helm chart for managing configuration files and shell scripts
 type: application
-version: 1.3.5
+version: 1.3.6
 appVersion: "1.0.0"

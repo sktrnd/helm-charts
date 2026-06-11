@@ -202,7 +202,7 @@ data:
     json_string="query.stores=${thanosep}"
     helm upgrade --install truss-thanos --repo https://charts.bitnami.com/bitnami thanos -f /cm/thanos.vo.yaml --version 15.13.1 --set-json "$json_string"  --wait --timeout 600s
 
-    helm upgrade --install truss-grafana --repo https://harbor.taco-cat.xyz/chartrepo/truss grafana -f /cm/grafana.vo.yaml --version 8.10.1 --wait --timeout 600s
+    helm upgrade --install truss-grafana --repo https://grafana.github.io/helm-charts grafana -f /cm/grafana.vo.yaml --version 8.10.1 --wait --timeout 600s
 
   remove.sh: |
     #!/bin/sh
