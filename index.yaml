@@ -91,6 +91,32 @@ entries:
     urls:
     - https://github.com/sktrnd/helm-charts/releases/download/admin-component-provisioner-1.2.2/admin-component-provisioner-1.2.2.tgz
     version: 1.2.2
+  hermes-agent:
+  - apiVersion: v2
+    appVersion: 0.8.0
+    created: "2026-11-14T21:41:31.570951768Z"
+    description: Cloud-native Helm chart for Nous Research's Hermes Agent
+    digest: c793ba7712c511dca13e6ab4891fe225a05434ebcab39e1958a03167cdddfd77
+    home: https://hermes-agent.nousresearch.com
+    icon: https://raw.githubusercontent.com/NousResearch/hermes-agent/main/landingpage/icon-192.png
+    keywords:
+    - hermes
+    - ai
+    - agent
+    - llm
+    - gateway
+    - acp
+    - mcp
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - name: hermes-agent-community
+    name: hermes-agent
+    sources:
+    - https://github.com/nousresearch/hermes-agent
+    type: application
+    urls:
+    - https://github.com/sktrnd/helm-charts/releases/download/hermes-agent-0.1.0/hermes-agent-0.1.0.tgz
+    version: 0.1.0
   thanos:
   - annotations:
       artifacthub.io/changes: |
@@ -232,4 +258,4 @@ entries:
     urls:
     - https://github.com/sktrnd/helm-charts/releases/download/worker-component-provisioner-1.3.0/worker-component-provisioner-1.3.0.tgz
     version: 1.3.0
-generated: "2026-06-11T18:10:03.358222322Z"
+generated: "2026-11-14T21:41:31.570974252Z"
